@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "JZDO-Exch": {
+      "commandName": "Project",
+      "commandLineArgs": "-test"
+    }
+  }
+}
