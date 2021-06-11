@@ -38,20 +38,27 @@ namespace JZDO_Exch
 
                 foreach (var arg in args)
                 {
-                    switch (arg.ToLower())
+                    if (arg.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
                     {
-                        case "--test":
-                        case "-test":
-                        case "/test":
-                            test = true;
-                            break;
+                        settings = SettingsReader.Read(arg);
+                    }
+                    else if (arg.StartsWith('/') || arg.StartsWith('-'))
+                    {
+                        string a = arg.ToLower()[1..];
+                        switch (a)
+                        {
+                            case "?":
+                            case "h":
+                            case "help":
+                            case "-help":
+                                Usage();
+                                break;
 
-                        default:
-                            if (arg.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
-                            {
-                                settings = SettingsReader.Read(arg);
-                            }
-                            break;
+                            case "test":
+                            case "-test":
+                                test = true;
+                                break;
+                        }
                     }
                 }
 
@@ -61,9 +68,7 @@ namespace JZDO_Exch
                 using TextWriterTraceListener FileTracer = new(file, nameof(FileTracer));
                 Trace.Listeners.Add(FileTracer);
 
-                //Trace.WriteLine($"{DateTime.Now:G} Start");
                 Worker.Run(settings, test);
-                //Trace.WriteLine($"{DateTime.Now:G} End");
             }
             catch (Exception ex)
             {
@@ -72,6 +77,12 @@ namespace JZDO_Exch
 
                 File.AppendAllText("error.log", ex.ToString());
             }
+        }
+
+        private static void Usage() //TODO
+        {
+            Console.WriteLine("Use -test to check functionality.");
+            Environment.Exit(1);
         }
     }
 }
