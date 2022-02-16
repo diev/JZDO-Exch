@@ -3,10 +3,13 @@
 [![Build status]][appveyor]
 [![GitHub Release]][releases]
 
-A console cross-platform .NET5 program to exchange files through SFTP and to send emails through SMTP.
+A console cross-platform .NET6 program to exchange files through SFTP and
+to send emails through SMTP.
 
-Программа требует установленного .NET5.
+Программа требует установленного .NET6.
 Настройки в файле `appsettings.json`.
+Если его нет, программа его создаст, но его нужно
+будет откорректировать до следующего запуска.
 
 ## License
 

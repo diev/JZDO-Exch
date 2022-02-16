@@ -15,46 +15,51 @@
 //------------------------------------------------------------------------------
 #endregion
 
+using JZDO_Exch.AppSettings;
+using JZDO_Exch.Helpers;
+
 using System;
 using System.IO;
 using System.Text;
 
-namespace JZDO_Exch
+namespace JZDO_Exch;
+
+public static class Worker
 {
-    public static class Worker
+    public static void Run(Settings settings, bool test)
     {
-        public static void Run(Settings settings, bool test)
+        var s = settings.Sftp;
+        using ExchangePoint exchPoint = new(s);
+
+        if (exchPoint.Connected)
         {
-            var s = settings.Sftp;
-            using ExchangePoint exchPoint = new(s);
-            if (exchPoint.Connected)
+            if (test)
             {
-                if (test)
-                {
-                    exchPoint.SelfTest(s.TestRemoteIn);
+                exchPoint.SelfTest(s.TestRemoteIn);
 
-                    exchPoint.SendFiles(s.TestRemoteOut);
-                    exchPoint.ReceiveFiles(s.TestRemoteIn);
-                }
-                else
+                exchPoint.SendFiles(s.TestRemoteOut);
+                exchPoint.ReceiveFiles(s.TestRemoteIn);
+            }
+            else
+            {
+                exchPoint.SendFiles(s.RemoteOut);
+                exchPoint.ReceiveFiles(s.RemoteIn);
+            }
+
+            if (exchPoint.NumReceived > 0)
+            {
+                StringBuilder body = new();
+                body.AppendLine($"{DateTime.Now:G} {s.LocalIn}");
+
+                var files = new DirectoryInfo(s.LocalIn).GetFiles();
+
+                foreach (var file in files)
                 {
-                    exchPoint.SendFiles(s.RemoteOut);
-                    exchPoint.ReceiveFiles(s.RemoteIn);
+                    body.AppendLine($"> {file.Name} [{file.Length:#,##0}]");
                 }
 
-                if (exchPoint.NumReceived > 0)
-                {
-                    StringBuilder body = new();
-                    body.AppendLine($"{DateTime.Now:G} {s.LocalIn}");
-                    var files = new DirectoryInfo(s.LocalIn).GetFiles();
-                    foreach (var file in files)
-                    {
-                        body.AppendLine($"> {file.Name} [{file.Length:#,##0}]");
-                    }
-
-                    using SmtpSend smtp = new(settings.Smtp);
-                    smtp.SendMessage("New files!", body);
-                }
+                using SmtpSend smtp = new(settings.Smtp);
+                smtp.SendMessage("New files!", body);
             }
         }
     }

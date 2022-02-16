@@ -15,6 +15,8 @@
 //------------------------------------------------------------------------------
 #endregion
 
+using JZDO_Exch.AppSettings;
+
 using Renci.SshNet;
 
 using System;
@@ -22,136 +24,169 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 
-namespace JZDO_Exch
+namespace JZDO_Exch;
+
+public class ExchangePoint : IDisposable
 {
-    public class ExchangePoint : IDisposable
+    private readonly SftpSettings _settings;
+    private readonly SftpClient? _client;
+
+    public bool Connected { get; private set; } = false;
+    public int NumSent { get; private set; } = 0;
+    public int NumReceived { get; private set; } = 0;
+
+    public ExchangePoint(SftpSettings settings)
     {
-        private readonly SftpSettings _settings;
-        private readonly SftpClient _client = null;
+        _settings = settings;
 
-        public bool Connected { get; private set; } = false;
-
-        public int NumSent { get; private set; } = 0;
-        public int NumReceived { get; private set; } = 0;
-
-        public ExchangePoint(SftpSettings settings)
+        try
         {
-            _settings = settings;
-
-            _client = new SftpClient(_settings.Host, _settings.Port, _settings.User, 
+            _client = new SftpClient(_settings.Host, _settings.Port, _settings.User,
                 Encoding.UTF8.GetString(Convert.FromBase64String(_settings.Pass)));
+            _client.Connect();
+            Connected = _client.IsConnected;
+        }
+        catch (Renci.SshNet.Common.SshConnectionException)
+        {
+            Trace.WriteLine("Cannot connect to the server.");
+        }
+        catch (System.Net.Sockets.SocketException)
+        {
+            Trace.WriteLine("Unable to establish the socket.");
+        }
+        catch (Renci.SshNet.Common.SshAuthenticationException)
+        {
+            Trace.WriteLine("Authentication of SSH session failed.");
+        }
+        catch (Exception)
+        {
+            Trace.WriteLine("SFTP settings failed.");
+        }
+    }
 
-            try
-            {
-                _client.Connect();
-                Connected = _client.IsConnected;
-            }
-            catch (Renci.SshNet.Common.SshConnectionException)
-            {
-                Trace.WriteLine("Cannot connect to the server.");
-            }
-            catch (System.Net.Sockets.SocketException)
-            {
-                Trace.WriteLine("Unable to establish the socket.");
-            }
-            catch (Renci.SshNet.Common.SshAuthenticationException)
-            {
-                Trace.WriteLine("Authentication of SSH session failed.");
-            }
+    public void ReceiveFiles(string remotePath)
+    {
+        if (_client is null)
+        {
+            Trace.WriteLine("SFTP client failed.");
+            return;
         }
 
-        public void ReceiveFiles(string remotePath)
+        _client.ChangeDirectory(remotePath);
+
+        string backupRecvPath = Path.Combine(_settings.StoreIn, $"{DateTime.Now:yyyyMMdd}");
+        var remoteFiles = _client.ListDirectory(".");
+
+        foreach (var file in remoteFiles)
         {
-            _client.ChangeDirectory(remotePath);
-
-            string backupRecvPath = Path.Combine(_settings.StoreIn, $"{DateTime.Now:yyyyMMdd}");
-
-            var remoteFiles = _client.ListDirectory(".");
-            foreach (var file in remoteFiles)
-            {
-                if (file.IsRegularFile)
-                {
-                    string filename = file.Name;
-                    string remoteFile = file.FullName;
-
-                    string recvFile = Path.Combine(_settings.LocalIn, filename);
-                    if (File.Exists(recvFile))
-                    {
-                        Trace.WriteLine($"{DateTime.Now:G} > {filename} [del]");
-
-                        File.Delete(recvFile);
-                    }
-
-                    using (var stream = File.Create(recvFile))
-                    {
-                        _client.DownloadFile(remoteFile, stream);
-                    }
-
-                    if (File.Exists(recvFile))
-                    {
-                        Trace.WriteLine($"{DateTime.Now:G} > {filename} [{file.Length:#,##0}]");
-
-                        _client.DeleteFile(remoteFile);
-
-                        Directory.CreateDirectory(backupRecvPath);
-                        File.Copy(recvFile, Path.Combine(backupRecvPath, $"{DateTime.Now:HHmmss}.{filename}"));
-                        NumReceived++;
-                    }
-                }
-            }
-        }
-
-        public void SendFiles(string remotePath)
-        {
-            _client.ChangeDirectory(remotePath);
-
-            string backupSentPath = Path.Combine(_settings.StoreOut, $"{DateTime.Now:yyyyMMdd}");
-
-            var localFiles = new DirectoryInfo(_settings.LocalOut).GetFiles();
-            if (localFiles.Length > 0 && !Directory.Exists(backupSentPath))
-            {
-                Directory.CreateDirectory(backupSentPath);
-            }
-            foreach (var file in localFiles)
+            if (file.IsRegularFile)
             {
                 string filename = file.Name;
-                string sendFile = file.FullName;
+                string remoteFile = file.FullName;
+                string recvFile = Path.Combine(_settings.LocalIn, filename);
 
-                using (var stream = File.OpenRead(sendFile))
+                if (File.Exists(recvFile))
                 {
-                    _client.UploadFile(stream, filename, true);
+                    Trace.WriteLine($"{DateTime.Now:G} > {filename} [del]");
+
+                    File.Delete(recvFile);
                 }
 
-                if (_client.Exists(filename))
+                using (var stream = File.Create(recvFile))
                 {
-                    Trace.WriteLine($"{DateTime.Now:G} < {filename} [{file.Length:#,##0}]");
+                    _client.DownloadFile(remoteFile, stream);
+                }
 
-                    File.Move(sendFile, Path.Combine(backupSentPath, $"{filename}.{DateTime.Now:HHmmss}"), true);
-                    NumSent++;
+                if (File.Exists(recvFile))
+                {
+                    Trace.WriteLine($"{DateTime.Now:G} > {filename} [{file.Length:#,##0}]");
+
+                    _client.DeleteFile(remoteFile);
+
+                    Directory.CreateDirectory(backupRecvPath);
+                    File.Copy(recvFile, Path.Combine(backupRecvPath, $"{DateTime.Now:HHmmss}.{filename}"));
+                    NumReceived++;
                 }
             }
         }
+    }
 
-        public void SelfTest(string remotePath)
+    public void SendFiles(string remotePath)
+    {
+        if (_client is null)
         {
-            const string filename = "zdo_test.txt";
-
-            string sendFile = Path.Combine(_settings.LocalOut, filename);
-            string remoteFile = $"{remotePath}/{filename}";
-
-            File.WriteAllText(sendFile, $"Test {DateTime.Now:G}");
-
-            using var stream = File.OpenRead(sendFile);
-            _client.UploadFile(stream, remoteFile, true);
-
-            Trace.WriteLine($"{DateTime.Now:G} < {filename} [test]");
+            Trace.WriteLine("SFTP client failed.");
+            return;
         }
 
-        public void Dispose()
+        _client.ChangeDirectory(remotePath);
+
+        string backupSentPath = Path.Combine(_settings.StoreOut, $"{DateTime.Now:yyyyMMdd}");
+        var localFiles = new DirectoryInfo(_settings.LocalOut).GetFiles();
+
+        if (localFiles.Length > 0 && !Directory.Exists(backupSentPath))
+        {
+            Directory.CreateDirectory(backupSentPath);
+        }
+
+        foreach (var file in localFiles)
+        {
+            string filename = file.Name;
+            string sendFile = file.FullName;
+
+            using (var stream = File.OpenRead(sendFile))
+            {
+                _client.UploadFile(stream, filename, true);
+            }
+
+            if (_client.Exists(filename))
+            {
+                Trace.WriteLine($"{DateTime.Now:G} < {filename} [{file.Length:#,##0}]");
+
+                File.Move(sendFile, Path.Combine(backupSentPath, $"{filename}.{DateTime.Now:HHmmss}"), true);
+                NumSent++;
+            }
+        }
+    }
+
+    public void SelfTest(string remotePath)
+    {
+        if (_client is null)
+        {
+            Trace.WriteLine("SFTP client failed.");
+            return;
+        }
+
+        const string filename = "zdo_test.txt";
+
+        string sendFile = Path.Combine(_settings.LocalOut, filename);
+        string remoteFile = $"{remotePath}/{filename}";
+
+        File.WriteAllText(sendFile, $"Test {DateTime.Now:G}");
+
+        using var stream = File.OpenRead(sendFile);
+        _client.UploadFile(stream, remoteFile, true);
+
+        Trace.WriteLine($"{DateTime.Now:G} < {filename} [test]");
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (disposing)
         {
             Connected = false;
-            _client.Disconnect();
-            ((IDisposable)_client).Dispose();
+
+            if (_client != null)
+            {
+                _client.Disconnect();
+                _client.Dispose();
+            }
         }
     }
 }

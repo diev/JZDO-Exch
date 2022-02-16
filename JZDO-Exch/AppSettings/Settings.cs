@@ -15,19 +15,12 @@
 //------------------------------------------------------------------------------
 #endregion
 
-namespace JZDO_Exch
+
+namespace JZDO_Exch.AppSettings;
+
+public sealed class Settings
 {
-    public sealed class SmtpSettings
-    {
-        public string Host { get; set; } = "mail.****.ru";
-        public int Port { get; set; } = 25;
-        public bool Tls { get; set; } = true;
-        public int Timeout { get; set; } = 60000;
-
-        public string User { get; set; } = "robot@****.ru";
-        public string Name { get; set; } = "ZDO";
-        public string Pass { get; set; } = "****";
-
-        public string[] Subscribers { get; set; } = { "admin@****.ru" };
-    }
+    public string Logs { get; set; } = "logs";
+    public SftpSettings Sftp { get; set; } = new();
+    public SmtpSettings Smtp { get; set; } = new();
 }

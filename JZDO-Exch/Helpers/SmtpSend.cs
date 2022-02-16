@@ -15,22 +15,27 @@
 //------------------------------------------------------------------------------
 #endregion
 
+using JZDO_Exch.AppSettings;
+
 using System;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Mail;
 using System.Text;
 
-namespace JZDO_Exch
+namespace JZDO_Exch.Helpers;
+
+public class SmtpSend : IDisposable
 {
-    public class SmtpSend : IDisposable
+    private readonly SmtpSettings _settings;
+    private readonly SmtpClient? _client;
+
+    public SmtpSend(SmtpSettings settings)
     {
-        private readonly SmtpSettings _settings;
-        private readonly SmtpClient _client = null;
+        _settings = settings;
 
-        public SmtpSend(SmtpSettings settings)
+        try
         {
-            _settings = settings;
-
             _client = new(_settings.Host, _settings.Port)
             {
                 DeliveryMethod = SmtpDeliveryMethod.Network,
@@ -40,30 +45,50 @@ namespace JZDO_Exch
                 EnableSsl = _settings.Tls
             };
         }
-
-        public void Dispose()
+        catch (Exception)
         {
-            ((IDisposable)_client).Dispose();
+            Trace.WriteLine("SMTP settings failed.");
+        }
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (disposing && _client != null)
+        {
+            _client.Dispose();
+        }
+    }
+
+    public void SendMessage(string subj, StringBuilder body)
+    {
+        SendMessage(subj, body.ToString());
+    }
+
+    public void SendMessage(string subj, string body)
+    {
+        if (_client is null)
+        {
+            Trace.WriteLine("SMTP client failed.");
+            return;
         }
 
-        public void SendMessage(string subj, StringBuilder body)
+        MailMessage mail = new();
+        mail.From = new(_settings.User, _settings.Name, Encoding.UTF8);
+
+        foreach (var email in _settings.Subscribers)
         {
-            SendMessage(subj, body.ToString());
+            mail.To.Add(email);
         }
 
-        public void SendMessage(string subj, string body)
-        {
-            MailMessage mail = new();
+        mail.Subject = subj;
+        mail.Body = body;
 
-            mail.From = new(_settings.User, _settings.Name, Encoding.UTF8);
-            foreach (var email in _settings.Subscribers)
-            {
-                mail.To.Add(email);
-            }
-            mail.Subject = subj;
-            mail.Body = body;
-
-            _client.Send(mail);
-        }
+        _client.Send(mail);
     }
 }

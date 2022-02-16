@@ -17,72 +17,110 @@
 
 #define TRACE
 
+using JZDO_Exch.AppSettings;
+using JZDO_Exch.Helpers;
+
 using System;
 using System.Diagnostics;
 using System.IO;
 
-namespace JZDO_Exch
+namespace JZDO_Exch;
+
+internal class Program
 {
-    internal class Program
+    private static void Main(string[] args)
     {
-        private static void Main(string[] args)
+        using ConsoleTraceListener ConTracer = new() { Name = nameof(ConTracer) };
+        Trace.Listeners.Add(ConTracer);
+        Trace.AutoFlush = true;
+
+        try
         {
-            using ConsoleTraceListener ConTracer = new() { Name = nameof(ConTracer) };
-            Trace.Listeners.Add(ConTracer);
-            Trace.AutoFlush = true;
+            Settings? settings = SettingsManager.Read();
+            bool test = false;
 
-            try
+            foreach (var arg in args)
             {
-                Settings settings = SettingsReader.Read("appsettings.json");
-                bool test = false;
-
-                foreach (var arg in args)
+                if (arg[0] == '/' || arg[0] == '-')
                 {
-                    if (arg.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
-                    {
-                        settings = SettingsReader.Read(arg);
-                    }
-                    else if (arg.StartsWith('/') || arg.StartsWith('-'))
-                    {
-                        string a = arg.ToLower()[1..];
-                        switch (a)
-                        {
-                            case "?":
-                            case "h":
-                            case "help":
-                            case "-help":
-                                Usage();
-                                break;
+                    string a = arg.ToLower()[1..];
 
-                            case "test":
-                            case "-test":
-                                test = true;
-                                break;
-                        }
+                    if (arg.StartsWith("--"))
+                    {
+                        a = a[1..];
+                    }
+
+                    switch (a)
+                    {
+                        case "?":
+                        case "h":
+                        case "help":
+                            Usage();
+                            break;
+
+                        case "test":
+                            test = true;
+                            break;
+
+                        default:
+                            WrongArg(arg);
+                            break;
                     }
                 }
-
-                var logs = Directory.CreateDirectory(Path.Combine(settings.Logs, $"{DateTime.Now:yyyy}"));
-                var file = Path.Combine(logs.FullName, $"{DateTime.Now:yyyyMMdd}.log");
-
-                using TextWriterTraceListener FileTracer = new(file, nameof(FileTracer));
-                Trace.Listeners.Add(FileTracer);
-
-                Worker.Run(settings, test);
+                else if (arg.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (File.Exists(arg))
+                    {
+                        settings = SettingsManager.Read(arg);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"File \"{arg}\" not found.");
+                        Environment.Exit(2);
+                    }
+                }
+                else
+                {
+                    WrongArg(arg);
+                }
             }
-            catch (Exception ex)
+
+            if (settings is null)
             {
-                Trace.WriteLine($"{DateTime.Now:G} Error");
-                Trace.TraceError(ex.Message);
-
-                File.AppendAllText("error.log", ex.ToString());
+                SettingsManager.WriteDefault();
+                Console.WriteLine($"Adjust new settings in \"{SettingsManager.FileName}\".");
+                Environment.Exit(3);
             }
-        }
 
-        private static void Usage() //TODO
-        {
-            Console.WriteLine("Use -test to check functionality.");
-            Environment.Exit(1);
+            var logsPath = settings.Logs;
+            var logs = Directory.CreateDirectory(Path.Combine(logsPath, $"{DateTime.Now:yyyy}"));
+            var file = Path.Combine(logs.FullName, $"{DateTime.Now:yyyyMMdd}.log");
+
+            using TextWriterTraceListener FileTracer = new(file, nameof(FileTracer));
+            Trace.Listeners.Add(FileTracer);
+
+            Worker.Run(settings, test);
+            Environment.Exit(0);
         }
+        catch (Exception ex)
+        {
+            Trace.WriteLine($"{DateTime.Now:G} Error");
+            Trace.TraceError(ex.Message);
+
+            File.AppendAllText("error.log", ex.ToString());
+            Environment.Exit(4);
+        }
+    }
+
+    private static void Usage() //TODO
+    {
+        Console.WriteLine("Use \"-test\" to check functionality.");
+        Environment.Exit(1);
+    }
+
+    private static void WrongArg(string arg)
+    {
+        Console.WriteLine($"Wrong arg \"{arg}\".");
+        Environment.Exit(1);
     }
 }
