@@ -10,9 +10,9 @@
     <Description>A console cross-platform .NET6 program to exchange files through SFTP and to send emails through SMTP.</Description>
     <Company>Bank</Company>
     <Authors>Dmitrii Evdokimov</Authors>
-    <AssemblyVersion>1.1.0.0</AssemblyVersion>
-    <Version>1.0.0</Version>
-    <FileVersion>1.1.0.0</FileVersion>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <Version>2.0.0</Version>
+    <FileVersion>2.0.0.0</FileVersion>
     <RepositoryUrl>https://github.com/diev/JZDO-Exch</RepositoryUrl>
     <PackageProjectUrl>https://dievdo.ru/JZDO-Exch</PackageProjectUrl>
     <RepositoryType>git</RepositoryType>
@@ -23,5 +23,9 @@
   <ItemGroup>
     <PackageReference Include="SSH.NET" Version="2020.0.1" />
   </ItemGroup>
+	
+	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
+		<Exec Command="if $(ConfigurationName) == Release call Properties\PostBuild.bat" />
+	</Target>
 
 </Project>

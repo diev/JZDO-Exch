@@ -1,12 +1,14 @@
 ﻿#region License
 //------------------------------------------------------------------------------
 // Copyright (c) Dmitrii Evdokimov
-// Source https://github.com/diev/
+// Open ource software https://github.com/diev/
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// http://www.apache.org/licenses/LICENSE-2.0
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,9 +18,6 @@
 #endregion
 
 #define TRACE
-
-using JZDO_Exch.AppSettings;
-using JZDO_Exch.Helpers;
 
 using System;
 using System.Diagnostics;
@@ -36,7 +35,6 @@ internal class Program
 
         try
         {
-            Settings? settings = SettingsManager.Read();
             bool test = false;
 
             foreach (var arg in args)
@@ -67,39 +65,20 @@ internal class Program
                             break;
                     }
                 }
-                else if (arg.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
-                {
-                    if (File.Exists(arg))
-                    {
-                        settings = SettingsManager.Read(arg);
-                    }
-                    else
-                    {
-                        Console.WriteLine($"File \"{arg}\" not found.");
-                        Environment.Exit(2);
-                    }
-                }
                 else
                 {
                     WrongArg(arg);
                 }
             }
 
-            if (settings is null)
-            {
-                SettingsManager.WriteDefault();
-                Console.WriteLine($"Adjust new settings in \"{SettingsManager.FileName}\".");
-                Environment.Exit(3);
-            }
-
-            var logsPath = settings.Logs;
+            var logsPath = Config.Logs;
             var logs = Directory.CreateDirectory(Path.Combine(logsPath, $"{DateTime.Now:yyyy}"));
             var file = Path.Combine(logs.FullName, $"{DateTime.Now:yyyyMMdd}.log");
 
             using TextWriterTraceListener FileTracer = new(file, nameof(FileTracer));
             Trace.Listeners.Add(FileTracer);
 
-            Worker.Run(settings, test);
+            Worker.Run(test);
             Environment.Exit(0);
         }
         catch (Exception ex)

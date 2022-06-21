@@ -1,0 +1,35 @@
+{
+  "runtimeOptions": {
+    "tfm": "net6.0",
+    "framework": {
+      "name": "Microsoft.NETCore.App",
+      "version": "6.0.0"
+    },
+    "configProperties": {
+      "Logs": "logs",
+      "Sftp.Host": "10.*.*.*",
+      "Sftp.Port": 22,
+      "Sftp.User": "zdo",
+      "Sftp.Pass": "****",
+      "Sftp.RemoteIn": "zdo/files/doc/in/cs/unknown",
+      "Sftp.RemoteOut": "zdo/files/doc/out/cs/unknown",
+      "Sftp.TestRemoteIn": "zdo/files/doc/in/cs/test",
+      "Sftp.TestRemoteOut": "zdo/files/doc/out/cs/test",
+      "Sftp.LocalIn": "ZDO\\IN",
+      "Sftp.LocalOut": "ZDO\\OUT",
+      "Sftp.StoreIn": "ZDO\\ARCHIVE\\IN",
+      "Sftp.StoreOut": "ZDO\\ARCHIVE\\OUT",
+      "Smtp.Host": "mail.*.ru",
+      "Smtp.Port": 25,
+      "Smtp.Tls": true,
+      "Smtp.Timeout": 60000,
+      "Smtp.User": "robot@*.ru",
+      "Smtp.Name": "ZDO",
+      "Smtp.Pass": "****",
+      "Smtp.Subscribers": [
+        "admin@*.ru",
+        "user@*.ru"
+      ]
+    }
+  }
+}

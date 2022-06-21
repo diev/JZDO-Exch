@@ -1,12 +1,14 @@
 ﻿#region License
 //------------------------------------------------------------------------------
 // Copyright (c) Dmitrii Evdokimov
-// Source https://github.com/diev/
+// Open ource software https://github.com/diev/
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// http://www.apache.org/licenses/LICENSE-2.0
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -14,8 +16,6 @@
 // limitations under the License.
 //------------------------------------------------------------------------------
 #endregion
-
-using JZDO_Exch.AppSettings;
 
 using Renci.SshNet;
 
@@ -28,21 +28,18 @@ namespace JZDO_Exch;
 
 public class ExchangePoint : IDisposable
 {
-    private readonly SftpSettings _settings;
     private readonly SftpClient? _client;
 
     public bool Connected { get; private set; } = false;
     public int NumSent { get; private set; } = 0;
     public int NumReceived { get; private set; } = 0;
 
-    public ExchangePoint(SftpSettings settings)
+    public ExchangePoint()
     {
-        _settings = settings;
-
         try
         {
-            _client = new SftpClient(_settings.Host, _settings.Port, _settings.User,
-                Encoding.UTF8.GetString(Convert.FromBase64String(_settings.Pass)));
+            _client = new SftpClient(Config.Sftp.Host, Config.Sftp.Port, Config.Sftp.User,
+                Encoding.UTF8.GetString(Convert.FromBase64String(Config.Sftp.Pass)));
             _client.Connect();
             Connected = _client.IsConnected;
         }
@@ -74,7 +71,7 @@ public class ExchangePoint : IDisposable
 
         _client.ChangeDirectory(remotePath);
 
-        string backupRecvPath = Path.Combine(_settings.StoreIn, $"{DateTime.Now:yyyyMMdd}");
+        string backupRecvPath = Path.Combine(Config.Sftp.StoreIn, $"{DateTime.Now:yyyyMMdd}");
         var remoteFiles = _client.ListDirectory(".");
 
         foreach (var file in remoteFiles)
@@ -83,7 +80,7 @@ public class ExchangePoint : IDisposable
             {
                 string filename = file.Name;
                 string remoteFile = file.FullName;
-                string recvFile = Path.Combine(_settings.LocalIn, filename);
+                string recvFile = Path.Combine(Config.Sftp.LocalIn, filename);
 
                 if (File.Exists(recvFile))
                 {
@@ -121,8 +118,8 @@ public class ExchangePoint : IDisposable
 
         _client.ChangeDirectory(remotePath);
 
-        string backupSentPath = Path.Combine(_settings.StoreOut, $"{DateTime.Now:yyyyMMdd}");
-        var localFiles = new DirectoryInfo(_settings.LocalOut).GetFiles();
+        string backupSentPath = Path.Combine(Config.Sftp.StoreOut, $"{DateTime.Now:yyyyMMdd}");
+        var localFiles = new DirectoryInfo(Config.Sftp.LocalOut).GetFiles();
 
         if (localFiles.Length > 0 && !Directory.Exists(backupSentPath))
         {
@@ -159,7 +156,7 @@ public class ExchangePoint : IDisposable
 
         const string filename = "zdo_test.txt";
 
-        string sendFile = Path.Combine(_settings.LocalOut, filename);
+        string sendFile = Path.Combine(Config.Sftp.LocalOut, filename);
         string remoteFile = $"{remotePath}/{filename}";
 
         File.WriteAllText(sendFile, $"Test {DateTime.Now:G}");

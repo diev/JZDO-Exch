@@ -1,12 +1,14 @@
 ﻿#region License
 //------------------------------------------------------------------------------
 // Copyright (c) Dmitrii Evdokimov
-// Source https://github.com/diev/
+// Open ource software https://github.com/diev/
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// http://www.apache.org/licenses/LICENSE-2.0
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -14,8 +16,6 @@
 // limitations under the License.
 //------------------------------------------------------------------------------
 #endregion
-
-using JZDO_Exch.AppSettings;
 
 using System;
 using System.Diagnostics;
@@ -27,22 +27,19 @@ namespace JZDO_Exch.Helpers;
 
 public class SmtpSend : IDisposable
 {
-    private readonly SmtpSettings _settings;
     private readonly SmtpClient? _client;
 
-    public SmtpSend(SmtpSettings settings)
+    public SmtpSend()
     {
-        _settings = settings;
-
         try
         {
-            _client = new(_settings.Host, _settings.Port)
+            _client = new(Config.Smtp.Host, Config.Smtp.Port)
             {
                 DeliveryMethod = SmtpDeliveryMethod.Network,
                 UseDefaultCredentials = false,
-                Credentials = new NetworkCredential(_settings.User,
-                    Encoding.UTF8.GetString(Convert.FromBase64String(_settings.Pass))),
-                EnableSsl = _settings.Tls
+                Credentials = new NetworkCredential(Config.Smtp.User,
+                    Encoding.UTF8.GetString(Convert.FromBase64String(Config.Smtp.Pass))),
+                EnableSsl = Config.Smtp.Tls
             };
         }
         catch (Exception)
@@ -78,16 +75,17 @@ public class SmtpSend : IDisposable
             return;
         }
 
-        MailMessage mail = new();
-        mail.From = new(_settings.User, _settings.Name, Encoding.UTF8);
+        MailMessage mail = new()
+        {
+            From = new(Config.Smtp.User, Config.Smtp.Name, Encoding.UTF8),
+            Subject = subj,
+            Body = body
+        };
 
-        foreach (var email in _settings.Subscribers)
+        foreach (var email in Config.Smtp.Subscribers)
         {
             mail.To.Add(email);
         }
-
-        mail.Subject = subj;
-        mail.Body = body;
 
         _client.Send(mail);
     }

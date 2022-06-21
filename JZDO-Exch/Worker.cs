@@ -1,12 +1,14 @@
 ﻿#region License
 //------------------------------------------------------------------------------
 // Copyright (c) Dmitrii Evdokimov
-// Source https://github.com/diev/
+// Open ource software https://github.com/diev/
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// http://www.apache.org/licenses/LICENSE-2.0
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,7 +17,6 @@
 //------------------------------------------------------------------------------
 #endregion
 
-using JZDO_Exch.AppSettings;
 using JZDO_Exch.Helpers;
 
 using System;
@@ -26,39 +27,38 @@ namespace JZDO_Exch;
 
 public static class Worker
 {
-    public static void Run(Settings settings, bool test)
+    public static void Run(bool test)
     {
-        var s = settings.Sftp;
-        using ExchangePoint exchPoint = new(s);
+        using ExchangePoint exchPoint = new();
 
         if (exchPoint.Connected)
         {
             if (test)
             {
-                exchPoint.SelfTest(s.TestRemoteIn);
+                exchPoint.SelfTest(Config.Sftp.TestRemoteIn);
 
-                exchPoint.SendFiles(s.TestRemoteOut);
-                exchPoint.ReceiveFiles(s.TestRemoteIn);
+                exchPoint.SendFiles(Config.Sftp.TestRemoteOut);
+                exchPoint.ReceiveFiles(Config.Sftp.TestRemoteIn);
             }
             else
             {
-                exchPoint.SendFiles(s.RemoteOut);
-                exchPoint.ReceiveFiles(s.RemoteIn);
+                exchPoint.SendFiles(Config.Sftp.RemoteOut);
+                exchPoint.ReceiveFiles(Config.Sftp.RemoteIn);
             }
 
             if (exchPoint.NumReceived > 0)
             {
                 StringBuilder body = new();
-                body.AppendLine($"{DateTime.Now:G} {s.LocalIn}");
+                body.AppendLine($"{DateTime.Now:G} {Config.Sftp.LocalIn}");
 
-                var files = new DirectoryInfo(s.LocalIn).GetFiles();
+                var files = new DirectoryInfo(Config.Sftp.LocalIn).GetFiles();
 
                 foreach (var file in files)
                 {
                     body.AppendLine($"> {file.Name} [{file.Length:#,##0}]");
                 }
 
-                using SmtpSend smtp = new(settings.Smtp);
+                using SmtpSend smtp = new();
                 smtp.SendMessage("New files!", body);
             }
         }

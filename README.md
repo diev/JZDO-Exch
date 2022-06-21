@@ -6,10 +6,10 @@
 A console cross-platform .NET6 program to exchange files through SFTP and
 to send emails through SMTP.
 
-Программа требует установленного .NET6.
-Настройки в файле `appsettings.json`.
-Если его нет (пример в папке `sample`), программа его создаст, но его нужно
-будет откорректировать до следующего запуска.
+Программа требует установленного .NET6 (LTS).
+
+Настройки в файле `JZDO-Exch.runtimeconfig.json`
+(пример в папке `sample`, секция `"configProperties"`).
 
 ## License
 
