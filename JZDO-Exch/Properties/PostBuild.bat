@@ -5,6 +5,7 @@ rem <Target Name="PostBuild" AfterTargets="PostBuildEvent">
 rem   <Exec Command="if $(ConfigurationName) == Release call Properties\PostBuild.bat" />
 rem </Target>
 
+if /%appveyor%/==/True/ goto :eof
 setlocal
 for %%i in (.) do set project=%%~nxi
 set ymd=%date:~-4%-%date:~3,2%-%date:~0,2%
@@ -31,6 +32,7 @@ call :pack %project%
 popd
 endlocal
 goto :eof
+
 :pack
 if /%1/ == // goto :eof
 echo Pack %1
