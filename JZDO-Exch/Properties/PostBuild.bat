@@ -16,7 +16,7 @@ set packer="C:\Program Files\7-Zip\7z.exe" a %pack% -xr!bin -xr!obj
 if exist %pack% del %pack%
 %1 > build.cmd (
 echo @echo off
-echo rem ".NET Runtime 6.0" required
+echo rem ".NET Runtime 8.0" required
 echo rem Download from get.dot.net
 echo rem Use "dotnet --info" to check
 echo.

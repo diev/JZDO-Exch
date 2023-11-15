@@ -3,10 +3,11 @@
 [![Build status]][appveyor]
 [![GitHub Release]][releases]
 
-A console cross-platform .NET6 program to exchange files through SFTP and
+A console cross-platform .NET8 program to exchange files through SFTP and
 to send emails through SMTP.
 
-Программа требует установленного .NET6 (LTS).
+Программа требует установленного .NET8 (LTS).
+Использует пакет SSH.NET Version=2023.0.0
 
 Настройки в файле `JZDO-Exch.runtimeconfig.json`
 (пример в папке `sample`, секция `"configProperties"`).
