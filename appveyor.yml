@@ -62,7 +62,7 @@ deploy:
   release: $(appveyor_project_name) v$(appveyor_build_version)
   description: '* $(appveyor_repo_commit_message)\n\nBuild #$(appveyor_build_number) by AppVeyor $(BuildDate)\nSee docs on $(Site)'
   auth_token:
-    secure: gPRmJ0DRh7AZhbW0/+dXa5wldoTVbaK8JRlg8KqKrizos88IkVn+nmjGyxVZLaMJ
+    secure: Oyf/ccEamPwfWLPEZQlf9hPfhGGXu3Kqnmt9saeaTMH2OE6OR0tAt2JkDl/FRR9o
   artifact: AppZip
   draft: false
   prerelease: true

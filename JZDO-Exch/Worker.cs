@@ -1,66 +1,117 @@
 ﻿#region License
-//------------------------------------------------------------------------------
-// Copyright (c) Dmitrii Evdokimov
-// Open ource software https://github.com/diev/
-// 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//------------------------------------------------------------------------------
+/*
+Copyright 2021-2024 Dmitrii Evdokimov
+Open source software
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 #endregion
 
-using JZDO_Exch.Helpers;
-
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
+
+using Diev.Extensions.Credentials;
+using Diev.Extensions.Sftp;
+using Diev.Extensions.Smtp;
+
+using Microsoft.Extensions.Configuration;
 
 namespace JZDO_Exch;
 
 public static class Worker
 {
-    public static void Run(bool test)
+    public static void Run(bool test, IConfiguration config)
     {
-        using ExchangePoint exchPoint = new();
+        Console.WriteLine(test ? "Run test..." : "Run...");
 
-        if (exchPoint.Connected)
+        var dir = Directory.GetCurrentDirectory();
+        var ymd = DateTime.Now.ToString("yyyyMMdd");
+        var sftpConfig = new SftpConfig()
+        {
+            RemoteUploadDirectory = "/home/zdo/files/doc/in/cs/unknown",
+            RemoteDownloadDirectory = "/home/zdo/files/doc/out/cs/unknown",
+            LocalUploadDirectory = config["LocalOut"] ?? dir,
+            LocalDownloadDirectory = config["LocalIn"] ?? dir,
+            StoreUploadDirectory = Path.Combine(config["StoreOut"] ?? dir, ymd),
+            StoreDownloadDirectory = Path.Combine(config["StoreIn"] ?? dir, ymd),
+            DeleteRemoteDownloaded = true,
+            DeleteLocalUploaded = true
+        }
+        .AddCredential(CredentialManager.ReadCredential("JZDO-Exch *"));
+        using var sftp = new SftpService(sftpConfig);
+
+        if (sftp.Connect())
         {
             if (test)
             {
-                exchPoint.SelfTest(Config.Sftp.TestRemoteIn);
+                string testfile = "zdo_test.txt";
+                string localFile = Path.Combine(sftpConfig.LocalUploadDirectory ?? dir, testfile);
+                string remoteFile = "/home/zdo/files/doc/in/cs/test/" + testfile;
+                File.WriteAllText(localFile, "TEST");
+                bool result = sftp.UploadFile(localFile, remoteFile);
 
-                exchPoint.SendFiles(Config.Sftp.TestRemoteOut);
-                exchPoint.ReceiveFiles(Config.Sftp.TestRemoteIn);
+                Trace.WriteLine(result ? "Test ok." : "Test fail.");
             }
             else
             {
-                exchPoint.SendFiles(Config.Sftp.RemoteOut);
-                exchPoint.ReceiveFiles(Config.Sftp.RemoteIn);
-            }
+                int sent = sftp.UploadDirectory();
 
-            if (exchPoint.NumReceived > 0)
-            {
-                StringBuilder body = new();
-                body.AppendLine($"{DateTime.Now:G} {Config.Sftp.LocalIn}");
-
-                var files = new DirectoryInfo(Config.Sftp.LocalIn).GetFiles();
-
-                foreach (var file in files)
+                if (sent > 0)
                 {
-                    body.AppendLine($"> {file.Name} [{file.Length:#,##0}]");
+                    Trace.WriteLine($"Sent: {sent}");
+                }
+                else
+                {
+                    Console.WriteLine("No files to send.");
                 }
 
-                using SmtpSend smtp = new();
-                smtp.SendMessage("New files!", body);
+                int recv = sftp.DownloadDirectory();
+
+                if (recv > 0)
+                {
+                    Trace.WriteLine($"Recv: {recv}");
+                    StringBuilder body = new();
+                    body.AppendLine($"{DateTime.Now:G} {sftpConfig.LocalDownloadDirectory}");
+
+                    var files = new DirectoryInfo(sftpConfig.LocalDownloadDirectory ?? dir).GetFiles();
+
+                    foreach (var file in files)
+                    {
+                        body.AppendLine($"> {file.Name} [{file.Length:#,##0}]");
+                    }
+
+                    var smtpConfig = new SmtpConfig()
+                        .AddDefaults()
+                        .AddCredential(CredentialManager.ReadCredential("SMTP *"));
+                    using var smtp = new SmtpService(smtpConfig);
+
+                    Console.WriteLine("Send messages...");
+
+                    smtp.SendMessageAsync(
+                        config["Subscribers"],
+                        "New files!",
+                        body.ToString()
+                    ).Wait();
+                }
+                else
+                {
+                    Console.WriteLine("No files to recv.");
+                }
             }
         }
+
+        Console.WriteLine("Done.");
     }
 }

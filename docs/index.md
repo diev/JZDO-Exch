@@ -3,14 +3,40 @@
 [![Build status]][appveyor]
 [![GitHub Release]][releases]
 
-A console cross-platform .NET8 program to exchange files through SFTP and
+A console .NET 8 program to exchange files through SFTP and
 to send emails through SMTP.
 
-Программа требует установленного .NET8 (LTS).
-Использует пакет SSH.NET Version=2023.0.0
+Консольная программа для обмена файлами по SFTP и отправка
+отчета по почте по SMTP.
+Программа требует установленного .NET 8 (LTS).
+Использует пакет SSH.NET Version=2024.0.0
 
-Настройки в файле `JZDO-Exch.runtimeconfig.json`
-(пример в папке `sample`, секция `"configProperties"`).
+## Settings / Параметры
+
+Appsettings:
+
+- `JZDO-Exch.config.json` (located with App `exe`)
+- `%ProgramData%\Diev\JZDO-Exch.config.json` (overwrites if exists)
+
+Windows Credential Manager:
+
+- `JZDO-Exch *` (name: `JZDO-Exch {host}[ {port}]`, user: `{sftp user}`, pass: `{password}`)
+- `SMTP *` (name: `SMTP {host} {port} tls`, user: `{sender}`, pass: `{password}`)
+
+## Requirements / Требования
+
+- .NET 8 Desktop Runtime
+
+## Build / Построение
+
+Build an app with many dlls  
+`dotnet publish JZDO-Exch\JZDO-Exch.csproj -o Distr`
+
+Build a single-file app when NET Desktop runtime required  
+`dotnet publish JZDO-Exch\JZDO-Exch.csproj -o Distr -r win-x64 -p:PublishSingleFile=true --self-contained false`
+
+Build a single-file app when no runtime required  
+`dotnet publish JZDO-Exch\JZDO-Exch.csproj -o Distr -r win-x64 -p:PublishSingleFile=true`
 
 ## License
 
