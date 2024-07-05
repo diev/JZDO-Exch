@@ -1,6 +1,17 @@
 version: '{build}'
 image: Visual Studio 2022
+pull_requests:
+  do_not_increment_build_number: true
+branches:
+  only:
+  - master
+  - main
+skip_tags: true
+skip_branch_with_pr: true
+max_jobs: 1
+
 configuration: Release
+
 init:
 - cmd: >-
     tzutil /s "Russian Standard Time"
@@ -17,58 +28,37 @@ dotnet_csproj:
   informational_version: '{version}'
 install:
 - ps: >-
-    [XML]$xml = Get-Content "$env:APPVEYOR_PROJECT_NAME\$env:APPVEYOR_PROJECT_NAME.csproj"
+    $src = $env:APPVEYOR_PROJECT_NAME
 
-    $env:VERSION = $xml.Project.PropertyGroup.Version
+    [XML]$xml = Get-Content "$src\$src.csproj"
 
-    Update-AppveyorBuild -Version ("{0}.{1}" -f $env:VERSION, $env:APPVEYOR_BUILD_NUMBER)
+    Update-AppveyorBuild -Version "$($xml.Project.PropertyGroup.Version[0]).$env:APPVEYOR_BUILD_NUMBER"
 
     $CommitDateTime = [datetime]::Parse($env:APPVEYOR_REPO_COMMIT_TIMESTAMP)
 
     $env:BuildDate = $CommitDateTime.ToString('yyyy-MM-dd')
 
-    $env:Site = "http://{0}.github.io/{1}" -f $env:APPVEYOR_ACCOUNT_NAME, $env:APPVEYOR_PROJECT_NAME
+    $env:AppZip = "$src-v$env:APPVEYOR_BUILD_VERSION.zip"
 
     Write-Host "Building v$env:APPVEYOR_BUILD_VERSION dated $env:BuildDate"
 build_script:
-- cmd: >-
-    dotnet publish -c Release -o Package
-
-    cd Package
-
-    echo %SITE%>>readme.txt
-
-    echo [InternetShortcut]>readme.url
-
-    echo URL=%SITE%>>readme.url
-
-    echo %APPVEYOR_PROJECT_NAME%.exe>>Package
-
-    echo %APPVEYOR_PROJECT_NAME%.exe.config>>Package
-
-    echo %APPVEYOR_PROJECT_NAME% v%APPVEYOR_BUILD_VERSION% (%BUILDDATE%)>readme.txt
-
-    echo http://%APPVEYOR_ACCOUNT_NAME%.github.io/%APPVEYOR_PROJECT_NAME%>>readme.txt
-
-    7z a ..\%APPVEYOR_PROJECT_NAME%-v%APPVEYOR_BUILD_VERSION%.zip
-
-    cd ..
+- cmd: build.cmd
 artifacts:
-- path: $(appveyor_project_name)-v$(appveyor_build_version).zip
+- path: '*.zip'
   name: AppZip
 deploy:
 - provider: GitHub
-  tag: v$(appveyor_build_version)
-  release: $(appveyor_project_name) v$(appveyor_build_version)
-  description: '* $(appveyor_repo_commit_message)\n\nBuild #$(appveyor_build_number) by AppVeyor $(BuildDate)\nSee docs on $(Site)'
+  tag: v$(APPVEYOR_BUILD_VERSION)
+  release: $(APPVEYOR_PROJECT_NAME) v$(APPVEYOR_BUILD_VERSION)
+  description: '* $(APPVEYOR_REPO_COMMIT_MESSAGE)\n\nBuild #$(APPVEYOR_BUILD_NUMBER) by AppVeyor $(BuildDate)'
   auth_token:
     secure: Oyf/ccEamPwfWLPEZQlf9hPfhGGXu3Kqnmt9saeaTMH2OE6OR0tAt2JkDl/FRR9o
   artifact: AppZip
-  draft: false
-  prerelease: true
   force_update: true
   on:
-    branch: main
+    branch:
+      - master
+      - main
 only_commits:
   files:
     - '*.cs'
