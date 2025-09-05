@@ -1,6 +1,6 @@
 ﻿#region License
 /*
-Copyright 2024 Dmitrii Evdokimov
+Copyright 2024-2025 Dmitrii Evdokimov
 Open source software
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,6 +27,7 @@ using System;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 
 using Microsoft.Win32.SafeHandles;
 
@@ -34,35 +35,91 @@ using static NativeMethods;
 
 public static class CredentialManager
 {
+    /// <summary>
+    /// Get Credential by a mask string.
+    /// </summary>
+    /// <param name="targetName">String with 'Start *' or 'Name' (Windows)
+    /// or 'Host UserName Password' (Linux).</param>
+    /// <returns>Credential record (type, host, username?, secret?).</returns>
+    /// <exception cref="Exception"></exception>
     public static Credential ReadCredential(string targetName)
     {
-        if (targetName.Contains('*'))
-        {
-            if (CredEnumerate(targetName, 0, out int count, out nint pCredentials))
-            {
-                if (count > 1)
-                    throw new Exception($"Windows Credential Manager has more '{targetName}' entries ({count}).");
+        var words = targetName.Split();
+        int num = words.Length;
 
-                nint credential = Marshal.ReadIntPtr(pCredentials, 0);
-                var cred = Marshal.PtrToStructure(credential, typeof(NativeCredential));
-                return ReadFromNativeCredential((NativeCredential)cred!);
+        if (num < 3)
+        {
+            // WIndows
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                if (targetName.Contains('*'))
+                {
+                    if (CredEnumerate(targetName, 0, out int count, out nint pCredentials))
+                    {
+                        if (count > 1)
+                            throw new Exception($"Windows Credential Manager has more '{targetName}' entries ({count}).");
+
+                        nint credential = Marshal.ReadIntPtr(pCredentials, 0);
+                        var cred = Marshal.PtrToStructure(credential, typeof(NativeCredential));
+                        return ReadFromNativeCredential((NativeCredential)cred!);
+                    }
+
+                    throw new Exception($"Windows Credential Manager has no '{targetName}' entries.");
+                }
+
+                if (CredRead(targetName, CredentialType.Generic, 0, out nint nCredPtr))
+                {
+                    using CriticalCredentialHandle critCred = new(nCredPtr);
+                    var cred = critCred.GetNativeCredential();
+                    return ReadFromNativeCredential(cred);
+                }
+
+                throw new Exception($"Windows Credential Manager has no '{targetName}' entries.");
             }
 
-            throw new Exception($"Windows Credential Manager has no '{targetName}' entries.");
+            // Linux
+
+            if (num == 2)
+            {
+                // "host username"
+                return new(CredentialType.Generic, words[0], words[1], null);
+            }
+            else
+            {
+                // "host"
+                return new(CredentialType.Generic, targetName, null, null);
+            }
         }
 
-        if (CredRead(targetName, CredentialType.Generic, 0, out nint nCredPtr))
+        // Windows or Linux
+
+        if (num == 3)
         {
-            using CriticalCredentialHandle critCred = new(nCredPtr);
-            var cred = critCred.GetNativeCredential();
-            return ReadFromNativeCredential(cred);
+            // "host username password"
+            return new(CredentialType.Generic, words[0], words[1], words[2]);
         }
 
-        throw new Exception($"Windows Credential Manager has no '{targetName}' entries.");
+        if (num > 3)
+        {
+            // "some additional values user@name password"
+            string pattern = @"(.*)\s(\S*)\s(\S*)";
+            var v = Regex.Matches(targetName, pattern)[0].Groups;
+
+            if (v.Count == 4)
+            {
+                return new(CredentialType.Generic, v[1].Value, v[2].Value, v[3].Value);
+            }
+        }
+
+        throw new Exception($"Invalid Credential in '{targetName}' entry.");
     }
 
     public static void WriteCredential(string targetName, string userName, string secret)
     {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            throw new InvalidOperationException("Windows Credential Manager exists in Windows only.");
+
         NativeCredential credential = new()
         {
             AttributeCount = 0,
@@ -77,7 +134,7 @@ public static class CredentialManager
             UserName = Marshal.StringToCoTaskMemUni(userName ?? Environment.UserName)
         };
 
-        if (secret != null)
+        if (secret is not null)
         {
             byte[] byteArray = Encoding.Unicode.GetBytes(secret);
 
@@ -102,6 +159,9 @@ public static class CredentialManager
 
     public static Credential[] EnumerateCrendentials(string? filter = null)
     {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            throw new InvalidOperationException("Windows Credential Manager exists in Windows only.");
+
         if (CredEnumerate(filter, 0, out int count, out nint pCredentials))
         {
             Credential[] result = new Credential[count];

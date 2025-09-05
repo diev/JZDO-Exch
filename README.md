@@ -1,15 +1,16 @@
-# [JZDO-Exch]
+# [JZDO-Exch](https://diev.github.io/JZDO-Exch/)
 
-[![Build status]][appveyor]
-[![GitHub Release]][releases]
+[![Build status](https://ci.appveyor.com/api/projects/status/dk0sf5bu4efe08kf?svg=true)](https://ci.appveyor.com/project/diev/jzdo-exch)
+[![.NET8 Desktop](https://github.com/diev/JZDO-Exch/actions/workflows/dotnet8-desktop.yml/badge.svg)](https://github.com/diev/JZDO-Exch/actions/workflows/dotnet8-desktop.yml)
+[![GitHub Release](https://img.shields.io/github/release/diev/JZDO-Exch.svg)](https://github.com/diev/JZDO-Exch/releases/latest)
 
 A console .NET 8 program to exchange files through SFTP and
 to send emails through SMTP.
 
 Консольная программа для обмена файлами по SFTP и отправка
 отчета по почте по SMTP.
-Программа требует установленного .NET 8 (LTS).
-Использует пакет SSH.NET Version=2024.0.0
+Программа требует установленного .NET 8 (LTS) - 9.
+Использует пакет SSH.NET Version=2025.0.0
 
 ## Settings / Параметры
 
@@ -25,7 +26,7 @@ Windows Credential Manager:
 
 ## Requirements / Требования
 
-- .NET 8 Desktop Runtime
+- .NET 8-9 Desktop Runtime
 
 ## Build / Построение
 
@@ -44,29 +45,20 @@ Build a single-file app when no runtime required
 
 Номер версии программы указывается по нарастающему принципу:
 
-* Требуемая версия .NET (8);
-* Год текущей разработки (2024);
-* Месяц без первого нуля и день редакции (624 - 24.06.2024);
+* Протестированная максимальная версия .NET (9);
+* Год текущей разработки (2025);
+* Месяц без первого нуля и день редакции (902 - 02.09.2025);
 * Номер билда - просто нарастающее число для внутренних отличий.
 Если настроен сервис AppVeyor, то это его автоинкремент.
+Или часто просто 0.
 
-Продукт развивается для собственных нужд, и поэтому
-Breaking Changes могут случаться чаще, чем это принято в SemVer.
+Продукт развивается для собственных нужд, а не по коробочной
+стратегии, и поэтому *Breaking Changes* могут случаться чаще,
+чем это принято в *SemVer*.
 
-При обновлении программы рекомендуется сохранить предыдущий конфиг,
-удалить его из папки с программой, чтобы она создала новый, перенести
-необходимые старые значения в новый конфиг перед новым запуском
-программы.
+## License / Лицензия
 
-## License
+Licensed under the [Apache License, Version 2.0](LICENSE).  
+Вы можете использовать эти материалы под свою ответственность.
 
-Licensed under the [Apache License, Version 2.0].
-
-[JZDO-Exch]: https://diev.github.io/JZDO-Exch/
-[Apache License, Version 2.0]: LICENSE
-
-[appveyor]: https://ci.appveyor.com/project/diev/jzdo-exch
-[releases]: https://github.com/diev/JZDO-Exch/releases/latest
-
-[Build status]: https://ci.appveyor.com/api/projects/status/dk0sf5bu4efe08kf?svg=true
-[GitHub Release]: https://img.shields.io/github/release/diev/JZDO-Exch.svg
+[![Telegram](https://img.shields.io/badge/t.me-dievdo-blue?logo=telegram)](https://t.me/dievdo)

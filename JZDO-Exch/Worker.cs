@@ -1,6 +1,6 @@
 ﻿#region License
 /*
-Copyright 2021-2024 Dmitrii Evdokimov
+Copyright 2021-2025 Dmitrii Evdokimov
 Open source software
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,6 +18,7 @@ limitations under the License.
 #endregion
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -36,20 +37,43 @@ public static class Worker
     {
         Console.WriteLine(test ? "Run test..." : "Run...");
 
+        var section = config.GetSection("Subscribers");
+        List<string> list = [];
+        foreach (var item in section.GetChildren())
+        {
+            list.Add(item.Value!);
+        }
+        string[] emails = [.. list];
+
+        //Mailer.SendMessage(emails, "New files test!", "TEST");
+
         var dir = Directory.GetCurrentDirectory();
         var ymd = DateTime.Now.ToString("yyyyMMdd");
-        var sftpConfig = new SftpConfig()
+
+        var cred = CredentialManager.ReadCredential("JZDO-Exch *");
+        var p = cred.TargetName.Split(' ');
+
+        var sftpConfig = new SftpConfig
         {
-            RemoteUploadDirectory = "/home/zdo/files/doc/in/cs/unknown",
-            RemoteDownloadDirectory = "/home/zdo/files/doc/out/cs/unknown",
+            Host = p[1],
+            Port = p.Length > 2 ? int.Parse(p[2]) : 22,
+            UserName = cred.UserName!,
+            Password = cred.Password!,
+
+            RemoteUploadDirectory = "/home/zdo/files/doc/out/cs/unknown",
+            RemoteDownloadDirectory = "/home/zdo/files/doc/in/cs/unknown",
+
             LocalUploadDirectory = config["LocalOut"] ?? dir,
             LocalDownloadDirectory = config["LocalIn"] ?? dir,
+
             StoreUploadDirectory = Path.Combine(config["StoreOut"] ?? dir, ymd),
             StoreDownloadDirectory = Path.Combine(config["StoreIn"] ?? dir, ymd),
+
             DeleteRemoteDownloaded = true,
             DeleteLocalUploaded = true
-        }
-        .AddCredential(CredentialManager.ReadCredential("JZDO-Exch *"));
+        };
+        //.AddCredential(CredentialManager.ReadCredential("JZDO-Exch *"));
+
         using var sftp = new SftpService(sftpConfig);
 
         if (sftp.Connect())
@@ -66,48 +90,41 @@ public static class Worker
             }
             else
             {
-                int sent = sftp.UploadDirectory();
+                //int sent = sftp.UploadDirectory();
+                sftp.UploadDirectory();
 
-                if (sent > 0)
-                {
-                    Trace.WriteLine($"Sent: {sent}");
-                }
-                else
-                {
-                    Console.WriteLine("No files to send.");
-                }
+                //if (sent > 0)
+                //{
+                //    Trace.WriteLine($"Sent: {sent}");
+                //}
+                //else
+                //{
+                //    Console.WriteLine("No files to send.");
+                //}
 
                 int recv = sftp.DownloadDirectory();
 
                 if (recv > 0)
                 {
-                    Trace.WriteLine($"Recv: {recv}");
+                    //Trace.WriteLine($"Recv: {recv}");
                     StringBuilder body = new();
                     body.AppendLine($"{DateTime.Now:G} {sftpConfig.LocalDownloadDirectory}");
 
-                    var files = new DirectoryInfo(sftpConfig.LocalDownloadDirectory ?? dir).GetFiles();
+                    //TODO attach log only?
+                    var files = new DirectoryInfo(sftpConfig.LocalDownloadDirectory).GetFiles();
 
                     foreach (var file in files)
                     {
                         body.AppendLine($"> {file.Name} [{file.Length:#,##0}]");
                     }
 
-                    var smtpConfig = new SmtpConfig()
-                        .AddDefaults()
-                        .AddCredential(CredentialManager.ReadCredential("SMTP *"));
-                    using var smtp = new SmtpService(smtpConfig);
-
                     Console.WriteLine("Send messages...");
 
-                    smtp.SendMessageAsync(
-                        config["Subscribers"],
-                        "New files!",
-                        body.ToString()
-                    ).Wait();
+                    Mailer.SendMessage(emails, "New files!", body.ToString());
                 }
                 else
                 {
-                    Console.WriteLine("No files to recv.");
+                    //Console.WriteLine("No files to recv.");
                 }
             }
         }

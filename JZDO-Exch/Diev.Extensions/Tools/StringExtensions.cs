@@ -17,16 +17,14 @@ limitations under the License.
 */
 #endregion
 
-namespace Diev.Extensions.Smtp;
+namespace Diev.Extensions.Tools;
 
-public class SmtpConfig
+public static class StringExtensions
 {
-    public string Host { get; set; } = string.Empty;
-    public int Port { get; set; } = 25;
-    public bool UseTls { get; set; }
-    public string DisplayName { get; set; } = string.Empty;
-    public string UserName { get; set; } = string.Empty;
-    public string Password { get; set; } = string.Empty;
-    public string Header { get; set; } = string.Empty;
-    public string Footer { get; set; } = string.Empty;
+    public static string PathQuoted(this string? s) =>
+        s is null
+            ? @""""""
+            : s.Contains(' ')
+                ? '"' + s + '"'
+                : s;
 }

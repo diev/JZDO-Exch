@@ -1,6 +1,6 @@
 ﻿#region License
 /*
-Copyright 2021-2024 Dmitrii Evdokimov
+Copyright 2021-2025 Dmitrii Evdokimov
 Open source software
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,17 +21,17 @@ namespace Diev.Extensions.Sftp;
 
 public class SftpConfig
 {
-    public string Host { get; set; } = string.Empty;
+    public required string Host { get; set; }
     public int Port { get; set; } = 22;
-    public string UserName { get; set; } = string.Empty;
-    public string Password { get; set; } = string.Empty;
+    public required string UserName { get; set; }
+    public required string Password { get; set; }
 
-    public string? RemoteUploadDirectory { get; set; }
-    public string? RemoteDownloadDirectory { get; set; }
-    public string? LocalUploadDirectory { get; set; }
-    public string? LocalDownloadDirectory { get; set; }
-    public string? StoreUploadDirectory { get; set; }
-    public string? StoreDownloadDirectory { get; set; }
+    public required string RemoteUploadDirectory { get; set; }
+    public required string RemoteDownloadDirectory { get; set; }
+    public required string LocalUploadDirectory { get; set; }
+    public required string LocalDownloadDirectory { get; set; }
+    public required string StoreUploadDirectory { get; set; }
+    public required string StoreDownloadDirectory { get; set; }
 
     public bool DeleteLocalUploaded { get; set; }
     public bool DeleteRemoteDownloaded { get; set; }

@@ -1,6 +1,6 @@
 ﻿#region License
 /*
-Copyright 2021-2024 Dmitrii Evdokimov
+Copyright 2021-2025 Dmitrii Evdokimov
 Open source software
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,7 +31,7 @@ public class SftpService(SftpConfig config) : ISftpService, IDisposable
 {
     private readonly SftpClient client = new(config.Host, config.Port, config.UserName, config.Password);
 
-    public bool Connected { get; private set; }
+    public bool Connected => client.IsConnected;
 
     public void Dispose()
     {
@@ -41,15 +41,9 @@ public class SftpService(SftpConfig config) : ISftpService, IDisposable
 
     protected virtual void Dispose(bool disposing)
     {
-        if (disposing)
+        if (disposing && client != null)
         {
-            Connected = false;
-
-            if (client != null)
-            {
-                client.Disconnect();
-                client.Dispose();
-            }
+            client.Disconnect();
         }
     }
 
@@ -58,8 +52,6 @@ public class SftpService(SftpConfig config) : ISftpService, IDisposable
         try
         {
             client.Connect();
-            Connected = client.IsConnected;
-            return Connected;
         }
         catch (Renci.SshNet.Common.SshConnectionException ex)
         {
@@ -78,7 +70,9 @@ public class SftpService(SftpConfig config) : ISftpService, IDisposable
             Trace.WriteLine($"SFTP settings failed: {ex.Message}.");
         }
 
-        return false;
+        bool result = Connected;
+        Log(result, $"Connect to {config.Host}:{config.Port} as {config.UserName}");
+        return result;
     }
 
     public void Disconnect()
@@ -86,22 +80,25 @@ public class SftpService(SftpConfig config) : ISftpService, IDisposable
         if (client.IsConnected)
         {
             client.Disconnect();
-            Connected = client.IsConnected;
         }
     }
 
     public bool DeleteFile(string remoteFile)
     {
+        bool result = false;
+
         try
         {
             client.DeleteFile(remoteFile);
-            return true;
+            result = true;
         }
         catch (Exception ex)
         {
-            Trace.WriteLine(@$"Fail to delete ""{remoteFile}"": {ex.Message}.");
-            return false;
+            Trace.WriteLine(ex.Message);
         }
+
+        //Log(result, $"del {remoteFile}");
+        return result;
     }
 
     public bool DownloadFile(string remoteFile, string localFile)
@@ -110,143 +107,174 @@ public class SftpService(SftpConfig config) : ISftpService, IDisposable
         {
             using var stream = File.Create(localFile);
             client.DownloadFile(remoteFile, stream);
-            return true;
         }
         catch (Exception ex)
         {
-            Trace.WriteLine(@$"Fail to download ""{localFile}"" from ""{remoteFile}"": {ex.Message}.");
-            return false;
+            Trace.WriteLine(ex.Message);
         }
+
+        bool result = File.Exists(localFile);
+        Log(result, $"> {remoteFile}");
+        return result;
     }
 
     public IEnumerable<ISftpFile> GetFiles(string remoteDirectory = ".")
     {
+        IEnumerable<ISftpFile> result = [];
+
         try
         {
-            return client.ListDirectory(remoteDirectory);
+            result = client.ListDirectory(remoteDirectory);
         }
         catch (Exception ex)
         {
-            Trace.WriteLine(@$"Fail to list ""{remoteDirectory}"": {ex.Message}.");
-            return [];
+            Trace.WriteLine(ex.Message);
         }
+
+        //Trace.WriteLine(@$"List remote ""{remoteDirectory}"" counts {result.Count<ISftpFile>() - 2} files."); //. && ..
+        return result;
     }
 
     public bool UploadFile(string localFile, string remoteFile)
     {
+        bool result = false;
+
         try
         {
             using var stream = File.OpenRead(localFile);
             client.UploadFile(stream, remoteFile);
-            return true;
+            result = true;
         }
         catch (Exception ex)
         {
-            Trace.WriteLine(@$"Fail to upload ""{localFile}"" to ""{remoteFile}"": {ex.Message}.");
-            return false;
+            Trace.WriteLine(ex.Message);
         }
+
+        Log(result, $"< {remoteFile}");
+        return result;
     }
 
-    public bool ChangeDirectory(string? remoteDirectory)
+    public bool ChangeDirectory(string remoteDirectory)
     {
-        if (remoteDirectory is null || remoteDirectory.Equals(".") || remoteDirectory.Equals(client.WorkingDirectory))
-        {
-            return true;
-        }
+        bool result = false;
 
         try
         {
             client.ChangeDirectory(remoteDirectory);
-            return true;
+            result = true;
         }
         catch (Exception ex)
         {
-            Trace.WriteLine(@$"Fail to change remote directory to ""{remoteDirectory}"": {ex.Message}.");
-            return false;
+            Trace.WriteLine(ex.Message);
         }
+
+        Log(result, $"cd {remoteDirectory}");
+        return result;
     }
 
     public int DownloadDirectory()
     {
         if (!ChangeDirectory(config.RemoteDownloadDirectory))
         {
+            Trace.WriteLine("Download failed.");
             return 0;
         }
 
         int result = 0;
-        var remoteFiles = GetFiles();
-        var store = config.StoreDownloadDirectory;
+        var remoteFiles = GetFiles(client.WorkingDirectory);
+
+        string local = config.LocalDownloadDirectory;
+        string store = config.StoreDownloadDirectory;
+
+        //TODO if (remoteFiles.Count > 2) //skip . and ..
 
         foreach (var sftpFile in remoteFiles)
         {
-            if (sftpFile.IsRegularFile)
+            string filename = sftpFile.Name;
+            string remoteFile = sftpFile.FullName;
+
+            if (sftpFile.IsRegularFile && filename[0] != '.')
             {
-                string filename = sftpFile.Name;
-                string remoteFile = sftpFile.FullName;
-                string localFile = Path.Combine(config.LocalDownloadDirectory ?? ".", filename);
+                string localFile = Path.Combine(local, filename);
 
-                if (DownloadFile(remoteFile, localFile))
+                //if (DownloadFile(remoteFile, localFile))
+                if (DownloadFile(filename, localFile))
                 {
-                    result++;
-
-                    if (store != null)
-                    {
-                        Directory.CreateDirectory(store);
-                        File.Copy(localFile, Path.Combine(store, filename), true);
-                    }
+                    Directory.CreateDirectory(store);
+                    string storeFile = Path.Combine(store, filename);
+                    File.Copy(localFile, storeFile, true);
 
                     if (config.DeleteRemoteDownloaded)
                     {
-                        DeleteFile(remoteFile);
+                        //DeleteFile(remoteFile);
+                        DeleteFile(filename);
                     }
+
+                    result++;
                 }
+            }
+            else
+            {
+                //Trace.WriteLine(@$"Download ""{remoteFile}"" passed.");
             }
         }
 
+        Trace.WriteLine($"Download total {result} files.");
         return result;
     }
 
     public int UploadDirectory()
     {
-        if (!ChangeDirectory(config.RemoteUploadDirectory))
-        {
-            return 0;
-        }
-
         int result = 0;
-        var localFiles = new DirectoryInfo(config.LocalUploadDirectory ?? ".").GetFiles();
-        var store = config.StoreUploadDirectory;
+        var localFiles = new DirectoryInfo(config.LocalUploadDirectory).GetFiles();
 
-        foreach (var file in localFiles)
+        if (localFiles.Length > 0)
         {
-            string filename = file.Name;
-            string localFile = file.FullName;
-            string remoteFile = filename;
-
-            if (UploadFile(localFile, remoteFile))
+            if (!ChangeDirectory(config.RemoteUploadDirectory))
             {
-                result++;
+                Trace.WriteLine("Upload failed.");
+                return 0;
+            }
 
-                if (store != null)
-                {
-                    Directory.CreateDirectory(store);
+            string store = config.StoreUploadDirectory;
+            Directory.CreateDirectory(store);
+            bool deleteLocalUploaded = config.DeleteLocalUploaded;
 
-                    if (config.DeleteLocalUploaded)
-                    {
-                        File.Move(localFile, Path.Combine(store, filename), true);
-                    }
-                    else
-                    {
-                        File.Copy(localFile, Path.Combine(store, filename), true);
-                    }
-                }
-                else if (config.DeleteLocalUploaded)
+            foreach (var file in localFiles)
+            {
+                string filename = file.Name;
+                string localFile = file.FullName;
+
+                //if (UploadFile(localFile, remoteFile))
+                if (UploadFile(localFile, filename))
                 {
-                    File.Delete(localFile);
+                    string storeFile = Path.Combine(store, filename);
+                    File.Copy(localFile, storeFile, true);
+
+                    if (deleteLocalUploaded)
+                    {
+                        File.Delete(localFile);
+                    }
+
+                    result++;
                 }
             }
+
+            Trace.WriteLine($"Upload total {result} files.");
         }
 
         return result;
+    }
+
+    private static void Log(bool result, string text)
+    {
+        if (result)
+        {
+            Trace.WriteLine(text);
+        }
+        else
+        {
+            Trace.WriteLine(text + " FAIL");
+        }
     }
 }

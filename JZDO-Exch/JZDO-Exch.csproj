@@ -2,15 +2,15 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
     <RootNamespace>JZDO_Exch</RootNamespace>
     <PackageLicenseExpression>Apache License, Version 2.0</PackageLicenseExpression>
     <PackageReleaseNotes>Requires .NET8</PackageReleaseNotes>
-    <Copyright>Copyright (c) 2021-2024 Dmitrii Evdokimov</Copyright>
-    <Description>A console .NET8 program to exchange files through SFTP and to send emails through SMTP.</Description>
+    <Copyright>Copyright (c) 2021-2025 Dmitrii Evdokimov</Copyright>
+    <Description>A console .NET8-9 program to exchange files through SFTP and to send emails through SMTP.</Description>
     <Company>diev</Company>
     <Authors>Diev</Authors>
-    <Version>8.2024.705</Version>
+    <Version>9.2025.905</Version>
     <RepositoryUrl>https://github.com/diev/JZDO-Exch</RepositoryUrl>
     <PackageProjectUrl>https://dievdo.ru/JZDO-Exch</PackageProjectUrl>
     <Nullable>enable</Nullable>
@@ -26,8 +26,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
-    <PackageReference Include="SSH.NET" Version="2024.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.8" />
+    <PackageReference Include="SSH.NET" Version="2025.0.0" />
   </ItemGroup>
 
   <ItemGroup>
